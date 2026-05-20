@@ -1,4 +1,4 @@
-name: Download File to Repo
+name: Download and Split Large File to Repo
 
 on:
   workflow_dispatch:
@@ -8,11 +8,10 @@ on:
         required: true
         type: string
       file_name:
-        description: 'نام فایل همراه با پسوند (مثال: image.png)'
+        description: 'نام فایل همراه با پسوند اصلی (مثال: tails.img)'
         required: true
         type: string
 
-# اضافه شدن دسترسی نوشتن برای رفع خطای 128
 permissions:
   contents: write
 
@@ -28,16 +27,30 @@ jobs:
       run: |
         curl -L "${{ github.event.inputs.file_url }}" -o "${{ github.event.inputs.file_name }}"
 
-    - name: Commit and Push File
+    - name: Split File into Parts
+      run: |
+        # ساخت یک پوشه اختصاصی برای پارت‌ها تا مخزن شلوغ نشود
+        mkdir -p "downloads/${{ github.event.inputs.file_name }}_parts"
+        
+        # پارت‌بندی فایل به بخش‌های 90 مگابایتی
+        # فایلی به نام file.zip تبدیل می‌شود به file.zip.00, file.zip.01 و غیره
+        split -b 90M "${{ github.event.inputs.file_name }}" "downloads/${{ github.event.inputs.file_name }}_parts/${{ github.event.inputs.file_name }}."
+        
+        # حذف فایل اصلی و حجیم برای جلوگیری از خطای گیت‌هاب
+        rm "${{ github.event.inputs.file_name }}"
+
+    - name: Commit and Push Parts
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         
-        if [ -f "${{ github.event.inputs.file_name }}" ]; then
-          git add "${{ github.event.inputs.file_name }}"
-          git commit -m "تغییرات خودکار: دانلود فایل ${{ github.event.inputs.file_name }}"
-          git push
+        # اضافه کردن پوشه پارت‌ها به گیت
+        git add downloads/
+        
+        # بررسی اینکه آیا پارتی ایجاد شده است یا خیر
+        if git diff --cached --quiet; then
+          echo "هیچ پارت جدیدی برای آپلود یافت نشد!"
         else
-          echo "خطا: فایل یافت نشد!"
-          exit 1
+          git commit -m "تغییرات خودکار: آپلود پارت‌های فایل ${{ github.event.inputs.file_name }}"
+          git push
         fi
