@@ -1,6 +1,5 @@
 name: Download File to Repo
 
-# این بخش باعث می‌شود برنامه به صورت دستی و با گرفتن لینک از شما اجرا شود
 on:
   workflow_dispatch:
     inputs:
@@ -9,36 +8,36 @@ on:
         required: true
         type: string
       file_name:
-        description: 'نام فایل همراه با پسوند (مثال: image.png یا data.zip)'
+        description: 'نام فایل همراه با پسوند (مثال: image.png)'
         required: true
         type: string
+
+# اضافه شدن دسترسی نوشتن برای رفع خطای 128
+permissions:
+  contents: write
 
 jobs:
   download:
     runs-on: ubuntu-latest
     
     steps:
-    # 1. شبیه‌سازی مخزن برای دسترسی به فایل‌ها
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    # 2. دانلود فایل با استفاده از کلاینت curl
     - name: Download File
       run: |
         curl -L "${{ github.event.inputs.file_url }}" -o "${{ github.event.inputs.file_name }}"
 
-    # 3. کانفیگ گیت و پوش کردن فایل به مخزن شما
     - name: Commit and Push File
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         
-        # بررسی اینکه آیا فایلی دانلود شده یا خیر
         if [ -f "${{ github.event.inputs.file_name }}" ]; then
           git add "${{ github.event.inputs.file_name }}"
           git commit -m "تغییرات خودکار: دانلود فایل ${{ github.event.inputs.file_name }}"
           git push
         else
-          echo "خطا: فایل دانلود نشد!"
+          echo "خطا: فایل یافت نشد!"
           exit 1
         fi
